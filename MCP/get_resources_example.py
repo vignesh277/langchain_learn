@@ -12,17 +12,14 @@ async def main() -> None:
     """Load resources from an MCP server and print their contents."""
     client = MultiServerMCPClient(
         {
-            "resources": {
+            "resource-demo": {
                 "transport": "http",
                 "url": "http://127.0.0.1:8000/mcp",
             }
         }
     )
 
-    blobs = await client.get_resources(
-        "resources",
-        uris=["file:///path/to/file.txt"],
-    )
+    blobs = await client.get_resources("resource-demo", uris=["data://welcome-note"])
 
     for blob in blobs:
         print(f"URI: {blob.metadata['uri']}")
