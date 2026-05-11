@@ -1,0 +1,3 @@
+Hello from a real MCP resource.
+
+This text lives on disk and is exposed through FastMCP as a resource.

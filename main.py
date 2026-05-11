@@ -1,10 +1,8 @@
-
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.tools import tool
+
 load_dotenv()
-
-
 
 
 agent =create_agent(
