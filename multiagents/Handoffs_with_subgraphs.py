@@ -26,13 +26,36 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 
+# =========================================================
+# LOAD ENVIRONMENT VARIABLES
+# =========================================================
+
 load_dotenv()
+
+# =========================================================
+# DEBUG LOGGER
+# =========================================================
+
+def debug_log(title: str):
+
+    """
+    Pretty debug logger.
+    """
+
+    print("\n" + "=" * 80)
+    print(f"🔥 DEBUG: {title}")
+    print("=" * 80)
+
 
 # =========================================================
 # SHARED STATE
 # =========================================================
 
 class AgentState(TypedDict):
+
+    """
+    Shared state across entire graph.
+    """
 
     # add_messages automatically appends messages
     messages: Annotated[
@@ -41,10 +64,6 @@ class AgentState(TypedDict):
     ]
 
     active_agent: str
-
-    support_completed: bool
-
-    sales_completed: bool
 
 
 # =========================================================
@@ -113,7 +132,6 @@ def middleware(state: AgentState):
         3. Then provide final answer
 
         IMPORTANT:
-        - Use tools only when necessary
         - Do NOT repeatedly call tools
         """,
 
@@ -154,10 +172,19 @@ def transfer_to_support(
         InjectedToolCallId
     ]
 ) -> Command:
-
     """
     Transfer conversation to support department.
+
+    Args:
+        reason: Reason for transfer
+
+    Returns:
+        Command object updating active agent
     """
+
+    debug_log("TOOL EXECUTION: transfer_to_support")
+
+    print(f"Reason Received: {reason}")
 
     return Command(
         update={
@@ -186,10 +213,19 @@ def transfer_to_sales(
         InjectedToolCallId
     ]
 ) -> Command:
-
     """
     Transfer conversation to sales department.
+
+    Args:
+        reason: Reason for transfer
+
+    Returns:
+        Command object updating active agent
     """
+
+    debug_log("TOOL EXECUTION: transfer_to_sales")
+
+    print(f"Reason Received: {reason}")
 
     return Command(
         update={
@@ -216,22 +252,48 @@ def transfer_to_sales(
 
 @tool
 def record_warranty(status: str) -> str:
-
     """
-    Record warranty status.
+    Record customer warranty status.
+
+    Args:
+        status: Warranty status
+
+    Returns:
+        Warranty confirmation message
     """
 
-    return f"Warranty recorded: {status}"
+    debug_log("TOOL EXECUTION: record_warranty")
+
+    print(f"Warranty Status: {status}")
+
+    result = f"Warranty recorded: {status}"
+
+    print(f"Tool Result: {result}")
+
+    return result
 
 
 @tool
 def provide_support(solution: str) -> str:
-
     """
-    Provide support solution.
+    Provide technical troubleshooting support.
+
+    Args:
+        solution: Suggested troubleshooting solution
+
+    Returns:
+        Support response message
     """
 
-    return f"Support solution: {solution}"
+    debug_log("TOOL EXECUTION: provide_support")
+
+    print(f"Support Solution: {solution}")
+
+    result = f"Support solution: {solution}"
+
+    print(f"Tool Result: {result}")
+
+    return result
 
 
 # =========================================================
@@ -240,22 +302,48 @@ def provide_support(solution: str) -> str:
 
 @tool
 def recommend_product(product: str) -> str:
-
     """
-    Recommend a product.
+    Recommend a product to the customer.
+
+    Args:
+        product: Product recommendation
+
+    Returns:
+        Product recommendation message
     """
 
-    return f"Recommended product: {product}"
+    debug_log("TOOL EXECUTION: recommend_product")
+
+    print(f"Recommended Product: {product}")
+
+    result = f"Recommended product: {product}"
+
+    print(f"Tool Result: {result}")
+
+    return result
 
 
 @tool
 def pricing_info(price: str) -> str:
-
     """
     Provide pricing information.
+
+    Args:
+        price: Product pricing details
+
+    Returns:
+        Pricing response message
     """
 
-    return f"Pricing details: {price}"
+    debug_log("TOOL EXECUTION: pricing_info")
+
+    print(f"Pricing Info: {price}")
+
+    result = f"Pricing details: {price}"
+
+    print(f"Tool Result: {result}")
+
+    return result
 
 
 # =========================================================
@@ -264,7 +352,27 @@ def pricing_info(price: str) -> str:
 
 def coordinator_node(state: AgentState):
 
+    """
+    Main supervisor agent.
+    """
+
+    debug_log("COORDINATOR NODE START")
+
+    print(f"Current Active Agent: {state['active_agent']}")
+
+    print("\nCURRENT MESSAGES:\n")
+
+    for msg in state["messages"]:
+
+        print(
+            f"{type(msg).__name__}: "
+            f"{msg.content}"
+        )
+
     system_prompt = middleware(state)
+
+    print("\nSYSTEM PROMPT:\n")
+    print(system_prompt)
 
     model = llm.bind_tools([
 
@@ -273,6 +381,8 @@ def coordinator_node(state: AgentState):
 
     ])
 
+    print("\nCalling Coordinator LLM...\n")
+
     response = model.invoke([
 
         SystemMessage(content=system_prompt),
@@ -280,6 +390,21 @@ def coordinator_node(state: AgentState):
         *state["messages"]
 
     ])
+
+    print("\nCOORDINATOR RESPONSE:\n")
+
+    print(response)
+
+    if response.tool_calls:
+
+        print("\nTOOL CALLS DETECTED:\n")
+
+        for tool_call in response.tool_calls:
+
+            print(f"Tool Name: {tool_call['name']}")
+            print(f"Arguments: {tool_call['args']}")
+
+    debug_log("COORDINATOR NODE END")
 
     return {
         "messages": [response]
@@ -292,7 +417,27 @@ def coordinator_node(state: AgentState):
 
 def support_node(state: AgentState):
 
+    """
+    Technical support agent.
+    """
+
+    debug_log("SUPPORT NODE START")
+
+    print(f"Current Active Agent: {state['active_agent']}")
+
+    print("\nCURRENT MESSAGES:\n")
+
+    for msg in state["messages"]:
+
+        print(
+            f"{type(msg).__name__}: "
+            f"{msg.content}"
+        )
+
     system_prompt = middleware(state)
+
+    print("\nSYSTEM PROMPT:\n")
+    print(system_prompt)
 
     model = llm.bind_tools([
 
@@ -301,6 +446,8 @@ def support_node(state: AgentState):
 
     ])
 
+    print("\nCalling Support LLM...\n")
+
     response = model.invoke([
 
         SystemMessage(content=system_prompt),
@@ -308,6 +455,21 @@ def support_node(state: AgentState):
         *state["messages"]
 
     ])
+
+    print("\nSUPPORT RESPONSE:\n")
+
+    print(response)
+
+    if response.tool_calls:
+
+        print("\nSUPPORT TOOL CALLS:\n")
+
+        for tool_call in response.tool_calls:
+
+            print(f"Tool Name: {tool_call['name']}")
+            print(f"Arguments: {tool_call['args']}")
+
+    debug_log("SUPPORT NODE END")
 
     return {
         "messages": [response]
@@ -320,7 +482,27 @@ def support_node(state: AgentState):
 
 def sales_node(state: AgentState):
 
+    """
+    Sales department agent.
+    """
+
+    debug_log("SALES NODE START")
+
+    print(f"Current Active Agent: {state['active_agent']}")
+
+    print("\nCURRENT MESSAGES:\n")
+
+    for msg in state["messages"]:
+
+        print(
+            f"{type(msg).__name__}: "
+            f"{msg.content}"
+        )
+
     system_prompt = middleware(state)
+
+    print("\nSYSTEM PROMPT:\n")
+    print(system_prompt)
 
     model = llm.bind_tools([
 
@@ -329,6 +511,8 @@ def sales_node(state: AgentState):
 
     ])
 
+    print("\nCalling Sales LLM...\n")
+
     response = model.invoke([
 
         SystemMessage(content=system_prompt),
@@ -336,6 +520,21 @@ def sales_node(state: AgentState):
         *state["messages"]
 
     ])
+
+    print("\nSALES RESPONSE:\n")
+
+    print(response)
+
+    if response.tool_calls:
+
+        print("\nSALES TOOL CALLS:\n")
+
+        for tool_call in response.tool_calls:
+
+            print(f"Tool Name: {tool_call['name']}")
+            print(f"Arguments: {tool_call['args']}")
+
+    debug_log("SALES NODE END")
 
     return {
         "messages": [response]
@@ -374,12 +573,34 @@ sales_tool_node = ToolNode([
 
 def route_main(state: AgentState):
 
+    """
+    Route coordinator output.
+    """
+
+    debug_log("MAIN ROUTER")
+
     last_message = state["messages"][-1]
+
+    print(
+        "Last Message Type:",
+        type(last_message).__name__
+    )
 
     if isinstance(last_message, AIMessage):
 
         if last_message.tool_calls:
+
+            tool_name = (
+                last_message.tool_calls[0]["name"]
+            )
+
+            print(f"Detected Tool: {tool_name}")
+
+            print("Routing to main_tools")
+
             return "main_tools"
+
+    print("Routing to END")
 
     return END
 
@@ -390,13 +611,29 @@ def route_main(state: AgentState):
 
 def after_main_tools(state: AgentState):
 
+    """
+    Route after transfer tools execute.
+    """
+
+    debug_log("AFTER MAIN TOOLS ROUTER")
+
     active_agent = state.get("active_agent")
 
+    print(f"Updated Active Agent: {active_agent}")
+
     if active_agent == "support":
+
+        print("Routing to SUPPORT SUBGRAPH")
+
         return "support_subgraph"
 
     if active_agent == "sales":
+
+        print("Routing to SALES SUBGRAPH")
+
         return "sales_subgraph"
+
+    print("Routing to END")
 
     return END
 
@@ -407,12 +644,28 @@ def after_main_tools(state: AgentState):
 
 def router_support_tools(state: AgentState):
 
+    """
+    Route support agent output.
+    """
+
+    debug_log("SUPPORT ROUTER")
+
     last_message = state["messages"][-1]
+
+    print(
+        "Last Message Type:",
+        type(last_message).__name__
+    )
 
     if isinstance(last_message, AIMessage):
 
         if last_message.tool_calls:
+
+            print("Routing to support_tools")
+
             return "support_tools"
+
+    print("Routing to END")
 
     return END
 
@@ -423,12 +676,28 @@ def router_support_tools(state: AgentState):
 
 def router_sales_tools(state: AgentState):
 
+    """
+    Route sales agent output.
+    """
+
+    debug_log("SALES ROUTER")
+
     last_message = state["messages"][-1]
+
+    print(
+        "Last Message Type:",
+        type(last_message).__name__
+    )
 
     if isinstance(last_message, AIMessage):
 
         if last_message.tool_calls:
+
+            print("Routing to sales_tools")
+
             return "sales_tools"
+
+    print("Routing to END")
 
     return END
 
@@ -438,6 +707,12 @@ def router_sales_tools(state: AgentState):
 # =========================================================
 
 def build_support_subgraph():
+
+    """
+    Build support workflow subgraph.
+    """
+
+    debug_log("BUILDING SUPPORT SUBGRAPH")
 
     graph = StateGraph(AgentState)
 
@@ -461,9 +736,6 @@ def build_support_subgraph():
         router_support_tools
     )
 
-    # AFTER TOOL EXECUTION
-    # GO BACK TO AGENT
-
     graph.add_edge(
         "support_tools",
         "support_agent"
@@ -477,6 +749,12 @@ def build_support_subgraph():
 # =========================================================
 
 def build_sales_subgraph():
+
+    """
+    Build sales workflow subgraph.
+    """
+
+    debug_log("BUILDING SALES SUBGRAPH")
 
     graph = StateGraph(AgentState)
 
@@ -500,9 +778,6 @@ def build_sales_subgraph():
         router_sales_tools
     )
 
-    # AFTER TOOL EXECUTION
-    # GO BACK TO AGENT
-
     graph.add_edge(
         "sales_tools",
         "sales_agent"
@@ -516,6 +791,12 @@ def build_sales_subgraph():
 # =========================================================
 
 def build_graph():
+
+    """
+    Build complete workflow graph.
+    """
+
+    debug_log("BUILDING MAIN GRAPH")
 
     workflow = StateGraph(AgentState)
 
@@ -580,6 +861,8 @@ def build_graph():
         END
     )
 
+    debug_log("GRAPH BUILD COMPLETE")
+
     return workflow.compile()
 
 
@@ -588,6 +871,12 @@ def build_graph():
 # =========================================================
 
 def main():
+
+    """
+    Application entry point.
+    """
+
+    debug_log("APPLICATION START")
 
     graph = build_graph()
 
@@ -603,69 +892,34 @@ def main():
             )
         ],
 
-        "active_agent": "coordinator",
-
-        "support_completed": False,
-
-        "sales_completed": False
+        "active_agent": "coordinator"
     }
 
-    result = graph.invoke(
+    debug_log("INITIAL STATE")
+
+    print(initial_state)
+
+    print("\nSTARTING GRAPH EXECUTION...\n")
+
+    # =====================================================
+    # STREAM EXECUTION
+    # =====================================================
+
+    for chunk in graph.stream(
 
         initial_state,
 
         config={
             "recursion_limit": 20
         }
-    )
 
-    print(
-        "\n================ RESULT ================\n"
-    )
+    ):
 
-    print(
-        "\n========== DETAILED ROUTING RESULT ==========\n"
-    )
+        debug_log("GRAPH STREAM EVENT")
 
-    for i, msg in enumerate(result["messages"]):
+        print(chunk)
 
-        msg_type = type(msg).__name__
-
-        print(f"[{i}] {msg_type}:")
-
-        # =================================================
-        # CONTENT
-        # =================================================
-
-        if hasattr(msg, "content"):
-
-            if str(msg.content).strip():
-
-                print(
-                    f"  Content: {msg.content}"
-                )
-
-        # =================================================
-        # TOOL CALLS
-        # =================================================
-
-        if hasattr(msg, "tool_calls"):
-
-            if msg.tool_calls:
-
-                for call in msg.tool_calls:
-
-                    print(
-                        f"  🛠️ Tool Call Triggered: "
-                        f"'{call['name']}'"
-                    )
-
-                    print(
-                        f"    Arguments: "
-                        f"{call['args']}"
-                    )
-
-        print("-" * 50)
+    debug_log("APPLICATION END")
 
 
 # =========================================================
@@ -673,4 +927,5 @@ def main():
 # =========================================================
 
 if __name__ == "__main__":
+
     main()
